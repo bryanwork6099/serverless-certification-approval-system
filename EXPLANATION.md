@@ -19,42 +19,25 @@ The manager can approve or reject the request through a separate API endpoint. T
 ### Architecture Diagram
 
 ```mermaid
-flowchart TD
-    Client[Client / PowerShell / cURL]
-
-    APIGW[Amazon API Gateway<br/>HTTP API]
-
-    Submit[SubmitRequestFunction]
-    Approval[HandleApprovalFunction]
-    Status[CheckStatusFunction]
-    Notify[NotifyManagerFunction]
-
-    SFN[AWS Step Functions<br/>ApprovalStateMachine]
-
-    DDB[(Amazon DynamoDB<br/>CertificationRequests)]
-
-    CW[Amazon CloudWatch Logs]
-
-    Client -->|POST /request| APIGW
+graph TD
+    Client[Client / Curl] -->|POST /request| APIGW[API Gateway]
     Client -->|POST /approval| APIGW
-    Client -->|GET /request/{requestId}| APIGW
-
-    APIGW --> Submit
-    APIGW --> Approval
-    APIGW --> Status
-
-    Submit -->|StartExecution| SFN
-
-    SFN -->|PutItem: PENDING| DDB
-    SFN -->|Invoke with Task Token| Notify
-
-    Notify -.->|Log approval token for demo| CW
-
-    Approval -->|SendTaskSuccess| SFN
-
-    SFN -->|UpdateItem: Final Status| DDB
-
-    Status -->|GetItem| DDB
+    Client -->|GET /request/:id| APIGW
+    
+    APIGW -->|POST /request| SubmitFn[SubmitRequestFunction]
+    APIGW -->|POST /approval| ApprovalFn[HandleApprovalFunction]
+    APIGW -->|GET /request/:id| StatusFn[CheckStatusFunction]
+    
+    SubmitFn -->|Start Execution| SFN[Step Functions Workflow]
+    
+    SFN -->|Put Item| DDB[(DynamoDB Table)]
+    SFN -->|Invoke | NotifyFn[NotifyManagerFunction]
+    NotifyFn -.->|Log Token| Logs[CloudWatch Logs]
+    
+    ApprovalFn -->|Send Task Success| SFN
+    SFN -->|Update Status| DDB
+    
+    StatusFn -->|Read Item| DDB
 ```
 
 ### 1.2 Architecture Components
