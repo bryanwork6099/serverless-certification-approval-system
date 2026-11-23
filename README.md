@@ -26,40 +26,25 @@ Managers can approve or reject requests through an HTTP API. AWS Step Functions 
 ### AWS Architecture Diagram
 
 ```mermaid
-flowchart TD
-    Client[Client / PowerShell / cURL]
-    APIGW[Amazon API Gateway]
-
-    Submit[SubmitRequestFunction]
-    Approval[HandleApprovalFunction]
-    Status[CheckStatusFunction]
-    Notify[NotifyManagerFunction]
-
-    SFN[AWS Step Functions]
-
-    DDB[(Amazon DynamoDB)]
-    CW[Amazon CloudWatch Logs]
-
-    Client -->|POST /request| APIGW
+graph TD
+    Client[Client / Curl] -->|POST /request| APIGW[API Gateway]
     Client -->|POST /approval| APIGW
-    Client -->|GET /request/{requestId}| APIGW
-
-    APIGW --> Submit
-    APIGW --> Approval
-    APIGW --> Status
-
-    Submit -->|Start Execution| SFN
-
-    SFN -->|Save Request| DDB
-    SFN -->|Invoke with Task Token| Notify
-
-    Notify -.->|Log Token - Demo Only| CW
-
-    Approval -->|SendTaskSuccess| SFN
-
-    SFN -->|Update Final Status| DDB
-
-    Status -->|Retrieve Request| DDB
+    Client -->|GET /request/:id| APIGW
+    
+    APIGW -->|POST /request| SubmitFn[SubmitRequestFunction]
+    APIGW -->|POST /approval| ApprovalFn[HandleApprovalFunction]
+    APIGW -->|GET /request/:id| StatusFn[CheckStatusFunction]
+    
+    SubmitFn -->|Start Execution| SFN[Step Functions Workflow]
+    
+    SFN -->|Put Item| DDB[(DynamoDB Table)]
+    SFN -->|Invoke | NotifyFn[NotifyManagerFunction]
+    NotifyFn -.->|Log Token| Logs[CloudWatch Logs]
+    
+    ApprovalFn -->|Send Task Success| SFN
+    SFN -->|Update Status| DDB
+    
+    StatusFn -->|Read Item| DDB
 ```
 
 ### AWS Services Used
